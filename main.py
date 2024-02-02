@@ -1,5 +1,5 @@
+# Library Imports
 import argparse
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,15 +7,21 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
+# Local Imports
+import dataloader
+
 
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
+        # For CIFAR10
+        self.conv1 = nn.Conv2d(3, 32, 3, 1)
+        # For MNIST
+        #self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
         self.dropout1 = nn.Dropout(0.25)
         self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(9216, 128)
+        self.fc1 = nn.Linear(12544, 128)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
@@ -69,25 +75,40 @@ def test(model, device, test_loader):
 
 
 def main():
-    # Program Arguments
+    # Program Arguments ================================================================================================
     parser = argparse.ArgumentParser(description="Deep Learning Optimizers Testing")
-    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
-                        help='Input batch size for training (default: 64)')
+    # Program
+    parser.add_argument('--threads', default=1, type=int, help='number of threads')
+    parser.add_argument('--no-cuda', action='store_true', default=False,
+                        help='Disables CUDA training')
+    parser.add_argument('--seed', type=int, default=1, metavar='S',
+                        help='Random seed (default: 1)')
+
+    # Dataset options
+    parser.add_argument('--dataset', default='cifar10', help='cifar10')
+    parser.add_argument('--datapath', default='cifar10/data', metavar='DIR', help='path to the dataset')
+    parser.add_argument('--raw_data', action='store_true', default=False, help='no data preprocessing')
+    parser.add_argument('--data_split', default=1, type=int,
+                        help='the number of splits for the dataloader')
+    parser.add_argument('--split_idx', default=0, type=int,
+                        help='the index of data splits for the dataloader')
+    parser.add_argument('--trainloader', default='', help='path to the dataloader with random labels')
+    parser.add_argument('--testloader', default='', help='path to the testloader with random labels')
+
+    # Training options
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='Input batch size for testing (default: 1000)')
+    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+                        help='Input batch size for training (default: 64)')
     parser.add_argument('--epochs', type=int, default=14, metavar='N',
                         help='Number of epochs to train (default: 14)')
     parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
                         help='Learning rate (default: 1.0)')
     parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
                         help='Learning rate step gamma (default: 0.7)')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='Disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='Random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                         help='How many batches to wait before logging training status')
-    parser.add_argument('--save-model', action='store_true', default=False,
+    parser.add_argument('--save-model', action='store_true', default=True,
                         help='For Saving the current Model')
     args = parser.parse_args()
 
@@ -98,20 +119,27 @@ def main():
     else:
         device = torch.device("cpu")
 
-    # Loading Datasets
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
-    train_dataset = datasets.MNIST('~/.pytorch/MNIST_data/', download=True, train=True, transform=transform)
-    test_dataset = datasets.MNIST('~/.pytorch/MNIST_data/', download=True, train=False, transform=transform)
+    # Loading Datasets =================================================================================================
+    # CIFAR10
+    datasets.CIFAR10(root=args.dataset + '/data', train=True, download=True)
+    train_loader, test_loader = dataloader.load_dataset(args.dataset, args.datapath, args.batch_size, args.threads,
+                                                        args.raw_data, args.data_split, args.split_idx,
+                                                        args.trainloader, args.testloader)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=True)
+    # MNIST
+    #transform = transforms.Compose([
+    #    transforms.ToTensor(),
+    #    transforms.Normalize((0.1307,), (0.3081,))
+    #])
+    #train_dataset = datasets.MNIST('~/.pytorch/MNIST_data/', download=True, train=True, transform=transform)
+    #test_dataset = datasets.MNIST('~/.pytorch/MNIST_data/', download=True, train=False, transform=transform)
+    #train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
+    #test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=True)
 
+    # Initialize and train model =======================================================================================
     model = Net().to(device)
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
+    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)  # TODO: allow multiple different optimizers
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
 
     for epoch in range(1, args.epochs + 1):
@@ -120,7 +148,7 @@ def main():
         scheduler.step()
 
     if args.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+        torch.save(model.state_dict(), "model.pt")
 
 
 if __name__ == "__main__":
