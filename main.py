@@ -100,13 +100,13 @@ def main():
                         help='Input batch size for testing (default: 1000)')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='Input batch size for training (default: 64)')
-    parser.add_argument('--epochs', type=int, default=14, metavar='N',
+    parser.add_argument('--epochs', type=int, default=40, metavar='N',
                         help='Number of epochs to train (default: 14)')
     parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
                         help='Learning rate (default: 1.0)')
     parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
                         help='Learning rate step gamma (default: 0.7)')
-    parser.add_argument('--log-interval', type=int, default=100, metavar='N',
+    parser.add_argument('--log-interval', type=int, default=300, metavar='N',
                         help='How many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=True,
                         help='For Saving the current Model')
@@ -148,7 +148,7 @@ def main():
         scheduler.step()
 
     if args.save_model:
-        torch.save(model.state_dict(), "model.pt")
+        torch.save(model.state_dict(), "cifar10/experiments/model_40epochs_lr1.0_gamma0.7_batchsize64/model.pt")
 
 
 if __name__ == "__main__":
