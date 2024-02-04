@@ -100,16 +100,18 @@ def main():
                         help='Input batch size for testing (default: 1000)')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='Input batch size for training (default: 64)')
-    parser.add_argument('--epochs', type=int, default=40, metavar='N',
+    parser.add_argument('--epochs', type=int, default=20, metavar='N',
                         help='Number of epochs to train (default: 14)')
-    parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
+    parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                         help='Learning rate (default: 1.0)')
     parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
                         help='Learning rate step gamma (default: 0.7)')
     parser.add_argument('--log-interval', type=int, default=300, metavar='N',
                         help='How many batches to wait before logging training status')
-    parser.add_argument('--save-model', action='store_true', default=True,
-                        help='For Saving the current Model')
+    #parser.add_argument('--save-model', action='store_true', default=True,
+    #                    help='For Saving the current Model')
+    parser.add_argument('--optimizer', default="sgd",
+                        help='Optimizer to use for training model. Available: sgd | adadelta')
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -126,29 +128,27 @@ def main():
                                                         args.raw_data, args.data_split, args.split_idx,
                                                         args.trainloader, args.testloader)
 
-    # MNIST
-    #transform = transforms.Compose([
-    #    transforms.ToTensor(),
-    #    transforms.Normalize((0.1307,), (0.3081,))
-    #])
-    #train_dataset = datasets.MNIST('~/.pytorch/MNIST_data/', download=True, train=True, transform=transform)
-    #test_dataset = datasets.MNIST('~/.pytorch/MNIST_data/', download=True, train=False, transform=transform)
-    #train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-    #test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=True)
-
     # Initialize and train model =======================================================================================
     model = Net().to(device)
 
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)  # TODO: allow multiple different optimizers
+    if args.optimizer == "adadelta":
+        optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    elif args.optimizer == "sgd":
+        print("Using sgd")
+        optimizer = optim.SGD(model.parameters(), lr=args.lr)
+    else:
+        print("Invalid input for optimizer, try agian")
+        exit(1)
+
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
+        # Save model after every epoch
+        torch.save(model.state_dict(), "cifar10/experiments/model_20epochs_lr"+str(args.lr)+"_gamma0.7_batchsize64_" +
+                   str(args.optimizer)+"/model_" + str(epoch) + ".pt")
         scheduler.step()
-
-    if args.save_model:
-        torch.save(model.state_dict(), "cifar10/experiments/model_40epochs_lr1.0_gamma0.7_batchsize64/model.pt")
 
 
 if __name__ == "__main__":
